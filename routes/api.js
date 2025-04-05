@@ -3,14 +3,12 @@
 const stock_db = require(process.cwd() + '/model/stock_DB_model.js');
 
 const getStock = async(stock_name)=>{
-  stock_name = stock_name.toUpperCase()
       try{
         const result = await fetch(`https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock_name}/quote`)
         
         if(!result.ok){
           throw new Error('Failed to fetch stock data');
         }
-
 
         const __stockData = await result.json()
         const {symbol, latestPrice} = __stockData
@@ -26,7 +24,12 @@ const getStock = async(stock_name)=>{
 }; 
 const saveStock = async(stock_name, price, likes, ip) =>{
   try {
-    console.log(stock_name, price, likes, ip)
+    const find_stock = await findStock(stock_name, likes)
+
+    if(find_stock){
+      return find_stock
+    }else{
+
     const newStock = new stock_db({
         stock_name: stock_name,
         price: price,
@@ -35,6 +38,7 @@ const saveStock = async(stock_name, price, likes, ip) =>{
     })
     await newStock.save()
     return newStock
+    }  
   } catch (error) {
     throw new Error('Error while saving', error.message)
   }
@@ -62,6 +66,12 @@ module.exports = function (app) {
     .get(async (req, res) =>{
       let { stock, like} = req.query
       let ip = req.ip.slice(0,-4)
+      
+      if(Array.isArray(stock)){
+        let stock1 = stock[0]
+        let stock2 = stock[1]  
+      }
+      
       const stockData = await getStock(stock)
       
       if (stockData == null){
@@ -70,11 +80,22 @@ module.exports = function (app) {
         })
       }
 
-      const stockData_from_DB = await findStock(stockData.symbol,like)
-      if (stockData_from_DB == null){
-      const savedStock = await saveStock(stockData.symbol, stockData.latestPrice, like, ip )
-      console.log(savedStock)  
+      if(Array.isArray(stock)){
+        
+
+
+
+      }else{
+        const savedStock = await saveStock(stockData.symbol, stockData.latestPrice, like, ip )
+      
+        return res.json({
+          'stockData':{
+            'stock': savedStock.stock_name,
+            'price': savedStock.price
+          }
+        })
       }
+
     });
 
     
