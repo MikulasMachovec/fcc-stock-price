@@ -4,11 +4,12 @@ const express     = require('express');
 const bodyParser  = require('body-parser');
 const cors        = require('cors');
 const helmet      = require('helmet')
+require('dotenv').config();
 
 const apiRoutes         = require('./routes/api.js');
 const fccTestingRoutes  = require('./routes/fcctesting.js');
 const runner            = require('./test-runner');
-
+const db                = require('./db-connection.js')
 const app = express();
 
 app.use('/public', express.static(process.cwd() + '/public'));
@@ -39,7 +40,10 @@ app.route('/')
 fccTestingRoutes(app);
 
 //Routing for API 
-apiRoutes(app);  
+apiRoutes(app);
+
+//Database connection
+db(app)
     
 //404 Not Found Middleware
 app.use(function(req, res, next) {
