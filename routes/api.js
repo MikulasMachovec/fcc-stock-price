@@ -24,8 +24,8 @@ const getStock = async(stock_name)=>{
 }; 
 const saveStock = async(stock_name, price, likes, ip) =>{
   try {
-    const foundStock = await findStock(stock_name, likes)
-
+    const foundStock = await findStock(stock_name, likes,ip)
+    console.log(ip)
     if(foundStock){
       return {
         'stock':foundStock.stock,
@@ -33,12 +33,11 @@ const saveStock = async(stock_name, price, likes, ip) =>{
         'likes':foundStock.likes
       }
     }else{
-
     const newStock = new stock_db({
         stock_name: stock_name,
         price: price,
         likes: likes ? 1 : 0,
-        ip: ip ? [ip]: []
+        ip: [ip]
     })
     await newStock.save()
     return {
@@ -52,10 +51,17 @@ const saveStock = async(stock_name, price, likes, ip) =>{
   }
 }
 
-const findStock = async(stock_name, like) => {
+const findStock = async(stock_name, like, ip) => {
   let dbStock = await stock_db.findOne({stock_name: stock_name.toUpperCase()})
-  //changing like from string to bool value
-  like = like === 'true';
+  
+  if(!dbStock){
+    console.log(`db for ${stock_name} does not exist`)
+    return false;
+  }
+  console.log(dbStock.ip.includes(ip))
+  if(dbStock.ip.includes(ip)){
+    like = false
+  }
 
   if (like){
     dbStock.likes += 1;
@@ -68,22 +74,26 @@ const findStock = async(stock_name, like) => {
   }
 }
 
-
-
-
-
-
+  const sumIp = (ip) =>{
+   const cleaned = ip.replace("::ffff:","")
+   const num = cleaned.split('.')
+   const sum = num.reduce((acc, num)=> acc + parseInt(num),0)
+   return String(sum) 
+  }
 
 module.exports = function (app) {
 
   app.route('/api/stock-prices')
     .get(async (req, res) =>{
       let { stock, like} = req.query
-      let ip = req.ip.slice(0,-4)
+      let ip = sumIp(req.ip)
       let stockData
 
+      //changing like from string to bool value
+      like = like === 'true';
+
       if(Array.isArray(stock)){
-        const promise = stock.map(stockItem => findStock(stockItem,like))
+        const promise = stock.map(stockItem => findStock(stockItem, like, ip))
         stockData = await Promise.all(promise)
         const [firstStock, secondStock] = stockData
         
@@ -102,6 +112,7 @@ module.exports = function (app) {
 
       }else{
         const gotStock = await getStock(stock)
+        
         stockData = await saveStock(gotStock.symbol, gotStock.latestPrice, like, ip )
                 
         if (stockData == null){
