@@ -25,7 +25,6 @@ const getStock = async(stock_name)=>{
 const saveStock = async(stock_name, price, likes, ip) =>{
   try {
     const foundStock = await findStock(stock_name, likes,ip)
-    console.log(ip)
     if(foundStock){
       return {
         'stock':foundStock.stock,
@@ -37,7 +36,7 @@ const saveStock = async(stock_name, price, likes, ip) =>{
         stock_name: stock_name,
         price: price,
         likes: likes ? 1 : 0,
-        ip: [ip]
+        ip: likes ? [ip] : []
     })
     await newStock.save()
     return {
@@ -58,7 +57,7 @@ const findStock = async(stock_name, like, ip) => {
     console.log(`db for ${stock_name} does not exist`)
     return false;
   }
-  console.log(dbStock.ip.includes(ip))
+
   if(dbStock.ip.includes(ip)){
     like = false
   }
@@ -91,10 +90,22 @@ module.exports = function (app) {
 
       //changing like from string to bool value
       like = like === 'true';
-
+      console.log('initial like '+like)
       if(Array.isArray(stock)){
         const promise = stock.map(stockItem => findStock(stockItem, like, ip))
         stockData = await Promise.all(promise)
+
+        if (stockData.includes(false)) {
+          const savePromises = stock.map(async (stockItem) => {
+            const gotStockData = await getStock(stockItem);
+            if (gotStockData) {
+              return saveStock(gotStockData.symbol, gotStockData.latestPrice, like, ip);
+            }
+            return null; // If the stock is invalid (null), skip saving it
+          });
+          stockData = await Promise.all(savePromises);
+        }
+
         const [firstStock, secondStock] = stockData
         
         res.json({
@@ -112,15 +123,14 @@ module.exports = function (app) {
 
       }else{
         const gotStock = await getStock(stock)
-        
-        stockData = await saveStock(gotStock.symbol, gotStock.latestPrice, like, ip )
                 
-        if (stockData == null){
+        if (gotStock == null){
           return res.json({
             'stockData': {'error': 'invalid symbol', likes: 0} 
           })
         }
-
+        stockData = await saveStock(gotStock.symbol, gotStock.latestPrice, like, ip )
+        
         return res.json({stockData})
       }
 
