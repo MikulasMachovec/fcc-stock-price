@@ -24,10 +24,14 @@ const getStock = async(stock_name)=>{
 }; 
 const saveStock = async(stock_name, price, likes, ip) =>{
   try {
-    const find_stock = await findStock(stock_name, likes)
+    const foundStock = await findStock(stock_name, likes)
 
-    if(find_stock){
-      return find_stock
+    if(foundStock){
+      return {
+        'stock':foundStock.stock,
+        'price':foundStock.price,
+        'likes':foundStock.likes
+      }
     }else{
 
     const newStock = new stock_db({
@@ -37,7 +41,11 @@ const saveStock = async(stock_name, price, likes, ip) =>{
         ip: ip ? [ip]: []
     })
     await newStock.save()
-    return newStock
+    return {
+      'stock':newStock.stock_name,
+      'price':newStock.price,
+      'likes':newStock.likes
+      }
     }  
   } catch (error) {
     throw new Error('Error while saving', error.message)
@@ -45,13 +53,19 @@ const saveStock = async(stock_name, price, likes, ip) =>{
 }
 
 const findStock = async(stock_name, like) => {
-  let dbStock = await stock_db.findOne({stock_name: stock_name})
+  let dbStock = await stock_db.findOne({stock_name: stock_name.toUpperCase()})
+  //changing like from string to bool value
+  like = like === 'true';
 
-  if(dbStock){
-    dbStock.likes += like? 1:0
-    await dbStock.save()
+  if (like){
+    dbStock.likes += 1;
+    await dbStock.save()  
   }
-  return dbStock
+
+  return {'stock':dbStock.stock_name,
+          'price':dbStock.price,
+          'likes':dbStock.likes
+  }
 }
 
 
@@ -66,34 +80,37 @@ module.exports = function (app) {
     .get(async (req, res) =>{
       let { stock, like} = req.query
       let ip = req.ip.slice(0,-4)
-      
-      if(Array.isArray(stock)){
-        let stock1 = stock[0]
-        let stock2 = stock[1]  
-      }
-      
-      const stockData = await getStock(stock)
-      
-      if (stockData == null){
-        return res.json({
-          'stockData': {'error': 'invalid symbol', likes: 0} 
-        })
-      }
+      let stockData
 
       if(Array.isArray(stock)){
+        const promise = stock.map(stockItem => findStock(stockItem,like))
+        stockData = await Promise.all(promise)
+        const [firstStock, secondStock] = stockData
         
-
-
+        res.json({
+          'stockData':[{
+            'stock' : firstStock.stock,
+            'price' : firstStock.price,
+            'rel_likes': firstStock.likes - secondStock.likes
+          },{
+            'stock' : secondStock.stock,
+            'price' : secondStock.price,
+            'rel_likes': secondStock.likes - firstStock.likes
+            }
+        ]
+        })
 
       }else{
-        const savedStock = await saveStock(stockData.symbol, stockData.latestPrice, like, ip )
-      
-        return res.json({
-          'stockData':{
-            'stock': savedStock.stock_name,
-            'price': savedStock.price
-          }
-        })
+        const gotStock = await getStock(stock)
+        stockData = await saveStock(gotStock.symbol, gotStock.latestPrice, like, ip )
+                
+        if (stockData == null){
+          return res.json({
+            'stockData': {'error': 'invalid symbol', likes: 0} 
+          })
+        }
+
+        return res.json({stockData})
       }
 
     });
