@@ -4,9 +4,8 @@ const express     = require('express');
 const bodyParser  = require('body-parser');
 const cors        = require('cors');
 const helmet      = require('helmet')
-require('dotenv').config();
 
-const apiRoutes         = require('./routes/api.js');
+const apiRoutes         = require(process.cwd() + '/routes/api.js');
 const fccTestingRoutes  = require('./routes/fcctesting.js');
 const runner            = require('./test-runner');
 const db                = require('./db-connection.js')

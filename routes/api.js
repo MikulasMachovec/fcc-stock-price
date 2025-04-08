@@ -91,6 +91,7 @@ module.exports = function (app) {
       //changing like from string to bool value
       like = like === 'true';
       console.log('initial like '+like)
+
       if(Array.isArray(stock)){
         const promise = stock.map(stockItem => findStock(stockItem, like, ip))
         stockData = await Promise.all(promise)
@@ -101,7 +102,7 @@ module.exports = function (app) {
             if (gotStockData) {
               return saveStock(gotStockData.symbol, gotStockData.latestPrice, like, ip);
             }
-            return null; // If the stock is invalid (null), skip saving it
+            return {'error': 'invalid symbol', likes: 0}
           });
           stockData = await Promise.all(savePromises);
         }
